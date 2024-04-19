@@ -36,7 +36,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
 
 
-
+# Get API key environment
 def _set_if_undefined(var: str):
     if not os.environ.get(var):
         os.environ[var] = getpass.getpass(f"Please provide your {var}")
@@ -51,12 +51,13 @@ _set_if_undefined("TAVILY_API_KEY")
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_PROJECT"] = "Demo Agent"
 
-
+# Prepare document for retriever
 file_path = "../docs/intent_trade_v2.json"
 file_path2 = "../docs/whales_market_v2.json"
-file_price = "price.pdf"
+file_price = "../docs/price.pdf"
 # data = json.loads(Path(file_path).read_text())
-"""Load csv file"""
+
+"""Loader that loads data from CSV file"""
 loader = PyPDFLoader(file_path = file_price)
 data_price = loader.load_and_split()
 
@@ -66,6 +67,7 @@ vectorstore_price = Chroma.from_documents(
     embedding=OpenAIEmbeddings(),
 )
 retrieve_price = vectorstore_price.as_retriever(search_kwargs={"k": 1})
+#### Create get price tool
 tool_price = create_retriever_tool(
     retrieve_price,
     "retrieve_price_history",
@@ -108,9 +110,10 @@ vectorstore1 = Chroma.from_documents(
     collection_name="data_online",
     embedding=OpenAIEmbeddings(),
 )
+
 retrieve_online_info = vectorstore1.as_retriever()
 
-
+#### Tool get online and offline info
 tool_offline = create_retriever_tool(
     retrieve_offline_info, 
     "retrieve_offline_docs",
@@ -124,15 +127,16 @@ tool_online = create_retriever_tool(
 tools = [tool_offline, tool_online, tool_price]
 tool_executor = ToolExecutor(tools)
 
+#### Tool search information
 tavily_tool = TavilySearchResults(max_results=2)
 tool_search_executor = ToolExecutor([tavily_tool])
 
-
+# Define state for each node
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
     next: str
     
-# Edges
+# Helper utilities function
 def create_agent(llm, tools, system_message: str):
     """Create an agent."""
     functions = [format_tool_to_openai_function(t) for t in tools]
@@ -146,8 +150,6 @@ def create_agent(llm, tools, system_message: str):
         ]
     )
     return prompt | llm.bind_functions(functions)
-    
-### Nodes
     
 def agent(state):
     """
@@ -267,7 +269,8 @@ def router(state):
         else:
             return "call_tool"
     return "end"
-# Graph
+
+# Create node for graph
 llm = ChatOpenAI(model="gpt-3.5-turbo")
 
 docs_agent = create_agent(
@@ -292,6 +295,8 @@ supervisor_agent = create_team_supervisor(
      respond with FINISH.""",
      ["DocAgent", "PriceAgent"],
 )
+
+# CREATE GRAPH FLOW
 workflow = StateGraph(AgentState)
 
 workflow.add_node("supervisor", supervisor_agent)
