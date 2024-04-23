@@ -334,17 +334,32 @@ app = workflow.compile()
 # mess = "Search for the current Whale Markets price?"
 # mess = "What is intend trade (offline)?"
 mess = "What is the referal program of Whale Markets?"
-inputs = {
-    "messages": [
-        HumanMessage(
-            content=mess
-        )
-    ]
-}
-for output in app.stream(inputs):
-    # print("output: ",output)
-    for key, value in output.items():
-        pprint(f"Output from node '{key}':")
-        pprint("---")
-        pprint(value, indent=2, width=80, depth=None)
-    pprint("\n---\n")
+# inputs = {
+#     "messages": [
+#         HumanMessage(
+#             content=mess
+#         )
+#     ]
+# }
+# for output in app.stream(inputs):
+#     # print("output: ",output)
+#     for key, value in output.items():
+#         pprint(f"Output from node '{key}':")
+#         pprint("---")
+#         pprint(value, indent=2, width=80, depth=None)
+#     pprint("\n---\n")
+# pprint(app.invoke(inputs))
+import gradio as gr
+def demo_agent(input_text):
+    inputs = {"messages": [HumanMessage(content=input_text)]}
+    results = app.invoke(inputs)
+    return results['messages'][-1].content
+
+iface = gr.Interface(
+    fn=demo_agent,
+    inputs = gr.Textbox(lines=2, placeholder="Enter your question here..."),
+    outputs=gr.Markdown(),
+    title="Demo Agent",
+    description="Demo Multi Agent with Langgraph"
+)
+iface.launch(share=True)
